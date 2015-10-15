@@ -1,0 +1,9 @@
+安装
+dpkg -i xxx.deb
+卸载
+dpkg -I(大写) xxx.deb  获取由该deb文件安装的软件细节：软件名和版本等、
+dpkg -P xxx(这个用你刚刚获得的细节提供的Package名字)
+这样整个卸载就完成了
+其他
+# Find out if a Debian package is installed or not
+dpkg -s test.deb | grep Status

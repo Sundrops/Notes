@@ -1,0 +1,32 @@
+Downloading a prebuilt gcc
+Ensure that the prebuilt toolchain is in your path.
+
+这个地方要注意　网页上给的当前路径不一定就是你的那个预编译工具所在地　　我的在export PATH=/home/sundrops/android/prebuilts/gcc/linux-x86/arm/arm-eabi-4.8/bin:$PATH
+一定不要弄错了
+$ export PATH=$(pwd)/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin:$PATH
+or
+$ export PATH=$(pwd)/prebuilts/gcc/darwin-x86/arm/arm-eabi-4.6/bin:$PATH
+On a linux host, if you don't have an Android source tree, you can download the prebuilt toolchain from:
+
+$ git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6
+Building
+As an example, we would build the panda kernel using the following commands:
+
+$ export ARCH=arm
+$ export SUBARCH=arm
+$ export CROSS_COMPILE=arm-eabi-
+$ cd omap
+$ git checkout <commit_from_first_step>
+$ make panda_defconfig
+$ make
+To build the tuna kernel, you may run the previous commands replacing all instances of "panda" with "tuna".
+
+The kernel binary is output as: `arch/arm/boot/zImage` It can be copied into the Android source tree in order to build the matching boot image.
+
+Or you can include the TARGET_PREBUILT_KERNEL variable while using make bootimage or any other make command line that builds a boot image.
+
+
+$ export TARGET_PREBUILT_KERNEL=$your_kernel_path/arch/arm/boot/zImage
+That variable is supported by all devices as it is set up via device/common/populate-new-device.sh
+
+

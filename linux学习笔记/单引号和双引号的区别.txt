@@ -1,0 +1,7 @@
+1.单引号内只能是一般的字符，不会有特殊字符，不能显示变量内的值
+而双引号可以保留变量的内容
+比如　name=Sundrops
+echo "my name is $name"
+my name is Sundrops
+echo 'my name is $name'
+my name is $name

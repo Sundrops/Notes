@@ -1,0 +1,218 @@
+
+Android源码和内核编译及替换会遇到不少问题,网上也有许多解决办法,但是很少有涉及真机的,罗老师写过Android源码编译及内核编译,但是都是虚拟机,和真机差别还是不小的,我经过了很多折磨完成后特地总结一下网络上很少提及的一些经验,与大家分享.
+
+/****************************************************************************************************************************/
+                                    安卓源码编译
+/****************************************************************************************************************************/
+1. 初始化编译环境
+   a.  JDK的安装
+		ubuntu可以不用配置,新版ubuntu自带的openjdk-7-jdk就可以
+		若没有则下载
+		$ sudo apt-get update
+		$ sudo apt-get install openjdk-7-jdk
+		更新系统默认的java和javac
+		$ sudo update-alternatives --config java
+		$ sudo update-alternatives --config javac
+   b.  其他包的下载
+		// (Ubuntu 14.04)
+		$ sudo apt-get install bison g++-multilib git gperf libxml2-utils make python-networkx zlib1g-dev:i386 zip
+   c.  其他
+		ubuntu连接不上手机
+		$ sudo vim /etc/udev/rules.d/51-android.rules
+		输入这些内容  SUBSYSTEM=="usb" ENV{DEVTYPE}=="usb_device", MODE="0666" 保存即可
+
+2. 下载内核,使用官方提供的下载工具repo,当然也可以使用git直接clone
+   a. 安装repo(源码下载的一个工具,整合了以一些命令)
+	$ mkdir ~/bin
+    $ PATH=~/bin:$PATH
+	$ curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+	$ chmod a+x ~/bin/repo   //改变repo的权限,变为可执行
+	
+   b. 初始化repo客户端
+	$ mkdir WORKING_DIRECTORY  // 例如 mkdir android  创建你的源码目录,就是你的源码待会下载到这个目录
+    $ cd WORKING_DIRECTORY     //     cd  android   
+	$ repo init -u https://android.googlesource.com/platform/manifest // 确定你要下载的源码url ,默认master分支
+	或者 $ repo init -u https://android.googlesource.com/platform/manifest -b android-4.0.1_r1   //-b 选择其他分支
+	初始化成功后,你的源码目录下会生成一个.repo的文件夹,里面会有一些文件如manifest
+   c. 开始下载源码
+	$ repo sync  //  由于在墙外,中途会有中断,中断后重复命令后即可
+3. 开始编译
+   a. 设置环境
+	// 在你创建的源码目录下操作
+	$ source build/envsetup.sh // 或者 $ . build/envsetup.sh
+	$ lunch   // 选择你要编译的类型 虚拟机或者其他真机(nexus系列)  当然也可以直接选择类型  $ lunch aosp_arm-eng
+	  输入命令后:
+		You're building on Linux
+
+		Lunch menu... pick a combo:
+			 1. aosp_arm-eng
+			 2. aosp_arm64-eng
+			 3. aosp_mips-eng
+			 4. aosp_mips64-eng
+			 5. aosp_x86-eng
+			 6. aosp_x86_64-eng
+			 7. aosp_tilapia-userdebug
+			 8. aosp_flo-userdebug
+			 9. full_fugu-userdebug
+			 10. aosp_fugu-userdebug
+			 11. aosp_grouper-userdebug
+			 12. aosp_deb-userdebug
+			 13. aosp_mako-userdebug
+			 14. aosp_hammerhead-userdebug
+			 15. aosp_flounder-userdebug
+			 16. aosp_shamu-userdebug
+			 17. aosp_manta-userdebug
+			 18. mini_emulator_x86-userdebug
+			 19. m_e_arm-userdebug
+			 20. mini_emulator_mips-userdebug
+			 21. mini_emulator_arm64-userdebug
+			 22. mini_emulator_x86_64-userdebug
+
+		Which would you like? [aosp_arm-eng] 14  //此处选择你需要的型号
+	  // 机型对照表
+        emulator(虚拟机)   aosp_arm-eng
+		Nexus 6	shamu	aosp_shamu-userdebug
+		Nexus Player	fugu	aosp_fugu-userdebug
+		Nexus 9	volantis (flounder)	aosp_flounder-userdebug
+		Nexus 5 (GSM/LTE)	hammerhead	aosp_hammerhead-userdebug
+		Nexus 7 (Wi-Fi)	razor (flo)	aosp_flo-userdebug
+		Nexus 7 (Mobile)	razorg (deb)	aosp_deb-userdebug
+		Nexus 10	mantaray (manta)	full_manta-userdebug
+		Nexus 4	occam (mako)	full_mako-userdebug
+		Nexus 7 (Wi-Fi)	nakasi (grouper)	full_grouper-userdebug
+		Nexus 7 (Mobile)	nakasig (tilapia)	full_tilapia-userdebug
+		Galaxy Nexus (GSM/HSPA+)	yakju (maguro)	full_maguro-userdebug
+		Galaxy Nexus (Verizon)	mysid (toro)	aosp_toro-userdebug
+		Galaxy Nexus (Experimental)	mysidspr (toroplus)	aosp_toroplus-userdebug
+		PandaBoard (Archived)	panda	aosp_panda-userdebug
+		Motorola Xoom (U.S. Wi-Fi)	wingray	full_wingray-userdebug
+		Nexus S	soju (crespo)	full_crespo-userdebug
+		Nexus S 4G	sojus (crespo4g)	full_crespo4g-userdebug
+	  //  三个版本说明版本
+		Buildtype	Use
+		user	limited access; suited for production
+		userdebug	like “user” but with root access and debuggability; preferred for debugging
+		eng	development configuration with additional debugging tools
+    b. 开始编译
+		$ make  // 没有参数,使用所有核进行全部编译,make -j4  四个核同时工作进行编译 ,后面会有讲到可以编译一部分 make bootimage
+/****************************************************************************************************************************/
+							 源码编译结束,可以直接刷入手机					  
+						  // 连接电脑,在当前命令行内输入 
+						  $ adb reboot bootloader  // 或者手机按电源和音量-进入fastboot模式再连接电脑
+						  $ fastboot -w flashall   // 刷入手机
+/****************************************************************************************************************************/
+
+
+
+/****************************************************************************************************************************/
+                          安卓内核源码编译,并使用自己编译的内核刷入手机
+/****************************************************************************************************************************/
+
+1. 选择适用自己机型的内核
+		Device	         Binary location	          Source location	   Build configuration
+		shamu	     device/moto/shamu-kernel	        kernel/msm	        shamu_defconfig
+		fugu	     device/asus/fugu-kernel	        kernel/x86_64	    fugu_defconfig
+		volantis	 device/htc/flounder-kernel   	    kernel/tegra	    flounder_defconfig
+		hammerhead	 device/lge/hammerhead-kernel	    kernel/msm	        hammerhead_defconfig
+		flo	         device/asus/flo-kernel/kernel	    kernel/msm	        flo_defconfig
+		deb          device/asus/flo-kernel/kernel	    kernel/msm	        flo_defconfig
+		manta	     device/samsung/manta/kernel	    kernel/exynos	    manta_defconfig
+		mako	     device/lge/mako-kernel/kernel	    kernel/msm	        mako_defconfig
+		grouper	     device/asus/grouper/kernel	        kernel/tegra	    tegra3_android_defconfig
+		tilapia	     device/asus/grouper/kernel	        kernel/tegra	    tegra3_android_defconfig
+		maguro	     device/samsung/tuna/kernel	        kernel/omap	        tuna_defconfig
+		toro	     device/samsung/tuna/kernel	        kernel/omap	        tuna_defconfig
+		panda	     device/ti/panda/kernel	            kernel/omap	        panda_defconfig
+		stingray	 device/moto/wingray/kernel	        kernel/tegra	    stingray_defconfig
+		wingray	     device/moto/wingray/kernel	        kernel/tegra	    stingray_defconfig
+		crespo	     device/samsung/crespo/kernel	    kernel/samsung	    herring_defconfig
+		crespo4g	 device/samsung/crespo/kernel	    kernel/samsung	    herring_defconfig
+
+		The goldfish project contains the kernel sources for the emulated platforms.
+		The msm project has the sources for ADP1, ADP2, Nexus One, Nexus 4, Nexus 5, Nexus 6, and can be used as a starting point for work on Qualcomm MSM chipsets.
+		The omap project is used for PandaBoard and Galaxy Nexus, and can be used as a starting point for work on TI OMAP chipsets.
+		The samsung project is used for Nexus S, and can be used as a starting point for work on Samsung Hummingbird chipsets.
+		The tegra project is for Xoom, Nexus 7, Nexus 9, and can be used as a starting point for work on NVIDIA Tegra chipsets.
+		The exynos project has the kernel sources for Nexus 10, and can be used as a starting point for work on Samsung Exynos chipsets.
+		The x86_64 project has the kernel sources for Nexus Player, and can be used as a starting point for work on Intel x86_64 chipsets.
+
+2.  开始下载内核
+       $ git clone https://android.googlesource.com/kernel/msm.git    // 比如下载适用于Google Nexus5的内核	
+	   $ git branch -a  // 查看内核的分支
+       $ git checkout 分支名   // 选择一个分支	    
+/*
+		更加保险地下载适合自己手机的内核,可以这样,找到安卓源码编译后生成的目录/home/sundrops/android/out/target/product/hammerhead (以hammerhead为例,可能是其他)
+        $ dd if=kernel bs=1 skip=$(LC_ALL=C od -Ad -x -w2 kernel | grep 8b1f | cut -d ' ' -f1 | head -1) | zgrep -a 'Linux version' // 参数中kernel可能是其他名字参考你的输出,可能是zImage-dtb等
+		输出
+		Linux version 3.4.0-g0315133 (android-build@wpiy2.hot.corp.google.com) (gcc version 4.8 (GCC) ) #1 SMP PREEMPT Tue Jul 28 17:54:37 UTC 2015
+		// g0315133 是commit的hash值,根据这个checkout适合你手机的内核分支
+		$ git clone https://android.googlesource.com/kernel/msm.git kernel
+		$ cd kernel
+		$ git checkout g0315133
+
+*/
+3.  配置编译用的gcc  
+    // 下载gcc (可选,因为之前你下载过安卓源码的话,会有这个)
+	$ git clone https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6
+	// 配置环境变量
+	$ export PATH=$(你的安卓源码目录)/prebuilts/gcc/linux-x86/arm/arm-eabi-4.6/bin:$PATH // 有可能是4.8版本,进入文件夹对照一下
+4.  开始编译(以 Google Nexus5为例 编译适用hammerhead的内核)
+	// 配置交叉编译所需的变量
+	$ export ARCH=arm
+	$ export SUBARCH=arm
+	$ export CROSS_COMPILE=arm-eabi-
+	// 进入内核目录,开始编译
+	$ cd msm
+	$ make hammerhead_defconfig
+	$ make
+/****************************************************************************************************************************/
+                                                   内核源码编译结束
+/****************************************************************************************************************************/
+
+/****************************************************************************************************************************/
+                                                   替换内核
+/****************************************************************************************************************************/
+1. 第一种方法,要检查许多文件较慢
+	// 设置内核变量
+	$ export TARGET_PREBUILT_KERNEL=$你的内核目录/arch/arm/boot/zImage
+	(特殊  Google Nexus5 这样设置 export TARGET_PREBUILT_KERNEL=$你的内核目录/arch/arm/boot/zImage-dtb 注意是zImage-dtb不是zImage,其他平台遇到问题可以两个都试试)
+	// 重新编译boot.img
+	/*
+	boot.img是由文件头信息，内核数据以及文件系统数据组成，它们之间非页面对齐部分用0填充,文件头信息的具体结构可以在system/core/mkbootimg/bootimg.h
+	** +-----------------+ 
+	** | boot header     | 1 page
+	** +-----------------+
+	** | kernel          | n pages  
+	** +-----------------+
+	** | ramdisk         | m pages  
+	** +-----------------+
+	** | second stage    | o pages
+	** +-----------------+
+	**
+	*/
+	$ make bootimage
+2.  直接打包,速度快
+		// 这是一行 ,有了上面boot.img的介绍,这些参数,应该都能理解
+      $ mkbootimg --base 0 --pagesize 2048 --kernel_offset 0x00008000 --ramdisk_offset 0x02900000 --second_offset 0x00f00000 --tags_offset 0x02700000 --cmdline 'console=ttyHSL0,115200,n8 androidboot.hardware=hammerhead  user_debug=31 maxcpus=2 msm_watchdog_v2.enable=1'--kernel /arch/arm/boot/zImage-dtb(你的内核) --ramdisk out/target/product/hammerhead/ramdisk.img(安卓源码编译后生成的ramdisk.img) -o out/boot.img(生成的boot.img放在这)
+
+/****************************************************************************************************************************/
+                                                   替换内核结束,可以刷入手机
+								  $ adb reboot bootloader  // 或者手机按电源和音量-进入fastboot模式再连接电脑
+								  $ fastboot -w flashall   // 刷入手机
+/****************************************************************************************************************************/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

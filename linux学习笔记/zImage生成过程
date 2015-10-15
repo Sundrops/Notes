@@ -1,0 +1,34 @@
+前面两篇文章介绍了vmlinux文件生成，这个文件必然是核心的linux内核，但是它是ELF格式的文件，其中包含了可执行的二进制指令（内核），调试信息，符号表等内容。vmlinux的生成是编译内核的关键，但是得到的vmlinux文件是不能烧写到flash中执行的。主要的问题是，没有一个环境来加载ELF格式的文件。而zImage则是可以加载执行的二进制代码。
+(elf格式文件ELF，Executable and Linkable  Format，可执行可链接格式，是UNIX实验室作为应用程序二进制接口而发布的，扩展名为elf.可以简单的认为，在elf格式的文件中，除二进制代 码外，还包括该可执行文件的某些信息，比如符号表等.)
+总的来说zImage和vmlinux的关系是：
+1、zImage是可可运行的二进制内核镜像
+2、zImage是由vmlinux处理、压缩得到的
+3、zImage的大小比vmlinux小很多
+
+下面介绍一下如何由vmlinux处理得到zImage
+a、将vmlinux文件中的调试信息、符号表除去生成一个Image的镜像文件
+/usr/local/arm/3.4.1/bin/arm-linux-objcopy -O binary -R .note -R .comment -S  vmlinux arch/arm/boot/Image
+
+b、将Image镜像用gzip压缩工具进行压缩，得到piggy.gz的文件
+gzip -f -9 < arch/arm/boot/compressed/../Image > arch/arm/boot/compressed/piggy.gz
+
+c、piggy.S文件中直接将上面一步的piggy.gz文件包含在其中，将piggy.S编译得到piggy.o文件
+/usr/local/arm/3.4.1/bin/arm-linux-gcc -Wp,-MD,arch/arm/boot/compressed/.piggy.o.d  
+-nostdinc -isystem /usr/local/arm/3.4.1/bin/../lib/gcc/arm-linux/3.4.1/include
+-D__KERNEL__ -Iinclude  -mlittle-endian -D__ASSEMBLY__ -mapcs-32 -mno-thumb-interwork
+-D__LINUX_ARM_ARCH__=4 -march=armv4 -mtune=arm9tdmi -msoft-float    
+-c -o arch/arm/boot/compressed/piggy.o
+arch/arm/boot/compressed/piggy.S
+
+d、将piggy.gz head.o misc.o三个文件链接成文内核镜像
+/usr/local/arm/3.4.1/bin/arm-linux-ld -EL   --defsym zreladdr=0x30008000 --defsym params_phys=0x30000100
+-p --no-undefined -X /usr/local/arm/3.4.1/bin/../lib/gcc/arm-linux/3.4.1/libgcc.a -T arch/arm/boot/compressed/vmlinux.lds
+arch/arm/boot/compressed/head.o
+arch/arm/boot/compressed/piggy.o
+arch/arm/boot/compressed/misc.o
+-o arch/arm/boot/compressed/vmlinux
+
+e、再次去除掉镜像中的符号、注释、调试信息的内容
+/usr/local/arm/3.4.1/bin/arm-linux-objcopy -O binary -R .note -R .comment
+-S  arch/arm/boot/compressed/vmlinux
+arch/arm/boot/zImage
